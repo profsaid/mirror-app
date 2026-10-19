@@ -47,7 +47,13 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" build.log
+          if ! grep -q "BUILD SUCCEEDED" build.log; then
+            # Surface compiler errors as annotations so they show on the run summary.
+            grep -E "error:" build.log | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()

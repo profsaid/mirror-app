@@ -26,7 +26,7 @@ concurrency:
 jobs:
   apk:
     name: Build APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: android
@@ -47,7 +47,17 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Build release APK
-        run: gradle --no-daemon assembleRelease
+        run: |
+          set +e
+          gradle --no-daemon assembleRelease 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            # Surface compiler errors as annotations so they show on the run summary.
+            grep -E "^e: |What went wrong|Could not|error:" build.log | head -40 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+          fi
+          exit $status
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Mirror.apk"
