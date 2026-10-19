@@ -1,0 +1,43 @@
+# Backup builder in case GitHub Actions is unavailable.
+# Codemagic → Add application → pick this GitHub repo → it reads this file.
+
+workflows:
+  android-apk:
+    name: Android APK
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+    scripts:
+      - name: Install Gradle
+        script: |
+          curl -sSL -o "$CM_BUILD_DIR/gradle.zip" https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          unzip -q "$CM_BUILD_DIR/gradle.zip" -d "$HOME/gradle"
+      - name: Build release APK
+        script: |
+          cd android
+          export VERSION_CODE=$BUILD_NUMBER
+          "$HOME/gradle/gradle-8.10.2/bin/gradle" --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$CM_BUILD_DIR/Mirror.apk"
+    artifacts:
+      - Mirror.apk
+
+  ios-compile-check:
+    name: iOS compile check
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+    scripts:
+      - name: Build for iOS Simulator
+        script: |
+          xcodebuild -project Mirror.xcodeproj -scheme Mirror -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
